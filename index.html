@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>QR Code Scanner Demo</title>
+    <title>QR / Barcode Scanner Demo</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <main class="scanner">
       <section class="panel" aria-labelledby="page-title">
-        <h1 id="page-title">QR Code Scanner</h1>
+        <h1 id="page-title">QR / Barcode Scanner</h1>
 
         <label class="field">
           <span>掃描結果</span>
-          <textarea id="qr-result" rows="4" placeholder="按下按鈕後掃描 QR code，內容會顯示在這裡" readonly></textarea>
+          <textarea id="scan-result" rows="4" placeholder="按下按鈕後掃描 QR code 或 barcode，內容會顯示在這裡" readonly></textarea>
         </label>
 
         <div class="actions">
@@ -25,12 +25,11 @@
 
         <div id="camera-box" class="camera-box" hidden>
           <video id="camera" playsinline muted></video>
-          <canvas id="qr-canvas" hidden></canvas>
         </div>
       </section>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

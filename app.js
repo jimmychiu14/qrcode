@@ -1,14 +1,28 @@
-const resultField = document.querySelector("#qr-result");
+const resultField = document.querySelector("#scan-result");
 const startButton = document.querySelector("#start-button");
 const stopButton = document.querySelector("#stop-button");
 const statusText = document.querySelector("#status");
 const cameraBox = document.querySelector("#camera-box");
 const video = document.querySelector("#camera");
-const canvas = document.querySelector("#qr-canvas");
-const context = canvas.getContext("2d", { willReadFrequently: true });
 
-let stream = null;
-let animationFrameId = null;
+let codeReader = null;
+let scanControls = null;
+
+const barcodeFormats = new Map([
+  [0, "AZTEC"],
+  [1, "CODABAR"],
+  [2, "CODE_39"],
+  [3, "CODE_93"],
+  [4, "CODE_128"],
+  [5, "DATA_MATRIX"],
+  [6, "EAN_8"],
+  [7, "EAN_13"],
+  [8, "ITF"],
+  [10, "PDF_417"],
+  [11, "QR_CODE"],
+  [14, "UPC_A"],
+  [15, "UPC_E"],
+]);
 
 function setStatus(message) {
   statusText.textContent = message;
@@ -20,43 +34,23 @@ function setScanningUi(isScanning) {
   cameraBox.hidden = !isScanning;
 }
 
-function stopScanning() {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId);
-    animationFrameId = null;
-  }
-
-  if (stream) {
-    stream.getTracks().forEach((track) => track.stop());
-    stream = null;
-  }
-
-  video.srcObject = null;
-  setScanningUi(false);
-  setStatus("已停止掃描。");
+function getFormatLabel(format) {
+  return barcodeFormats.get(format) || "barcode";
 }
 
-function scanFrame() {
-  if (!stream || video.readyState !== video.HAVE_ENOUGH_DATA) {
-    animationFrameId = requestAnimationFrame(scanFrame);
-    return;
+function stopScanning(message = "已停止掃描。") {
+  if (scanControls) {
+    scanControls.stop();
+    scanControls = null;
   }
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-  const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-  if (code) {
-    resultField.value = code.data;
-    setStatus("已讀取 QR code 內容。");
-    stopScanning();
-    return;
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach((track) => track.stop());
+    video.srcObject = null;
   }
 
-  animationFrameId = requestAnimationFrame(scanFrame);
+  setScanningUi(false);
+  setStatus(message);
 }
 
 async function startScanning() {
@@ -65,8 +59,8 @@ async function startScanning() {
     return;
   }
 
-  if (typeof jsQR !== "function") {
-    setStatus("QR code 掃描套件尚未載入，請確認網路或 CDN 連線。");
+  if (!window.ZXingBrowser?.BrowserMultiFormatReader) {
+    setStatus("掃描套件尚未載入，請確認網路或 CDN 連線。");
     return;
   }
 
@@ -74,18 +68,25 @@ async function startScanning() {
   setStatus("正在開啟相機...");
 
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
+    codeReader = codeReader || new ZXingBrowser.BrowserMultiFormatReader();
+    scanControls = await codeReader.decodeFromConstraints({
       video: {
         facingMode: { ideal: "environment" },
       },
       audio: false,
+    }, video, (result) => {
+      if (!result) {
+        return;
+      }
+
+      const format = getFormatLabel(result.getBarcodeFormat());
+
+      resultField.value = result.getText();
+      stopScanning(`已讀取 ${format} 內容。`);
     });
 
-    video.srcObject = stream;
-    await video.play();
     setScanningUi(true);
-    setStatus("請將 QR code 對準鏡頭。");
-    scanFrame();
+    setStatus("請將 QR code 或 barcode 對準鏡頭。");
   } catch (error) {
     const message =
       error.name === "NotAllowedError"
